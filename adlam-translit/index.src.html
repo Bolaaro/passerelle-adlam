@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#131C4D">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>__NAME__ : translittérateur Adlam et latin pour le pular</title>
+<meta name="description" content="Convertit le pular (fula, peul) entre l'écriture Adlam et l'orthographe latine Bamako/UNESCO, avec clavier Adlam intégré.">
+
+<!-- Polices intégrées dans la page (Noto Sans Adlam et Andika, licence SIL Open Font) : ne pas modifier. -->
+<style>
+/*__FONTS__*/
+</style>
+
+<style>
+  :root {
+    --page: #EAEEF7;
+    --ink: #131A3A;
+    --muted: #4A547C;
+    --mark: #131C4D;
+    --saffron: #F4B63F;
+    --saffron-hi: #FFC85A;
+    --on-saffron: #131C4D;
+
+    --font-ui: 'Andika', 'Noto Sans', system-ui, sans-serif;
+    --font-adlam: 'Noto Sans Adlam', 'Ebrima', 'Noto Sans', sans-serif;
+
+    --r-panel: 20px;
+    --r-drawer: 14px;
+    --r-key: 10px;
+
+    --tile-line: #C6CDE3;
+  }
+
+  /* Le panneau Adlam est toujours sombre, le panneau latin toujours clair (en thème clair). */
+  .panel--adlam {
+    --p-bg: #131C4D;
+    --p-ink: #F3F4FF;
+    --p-muted: #A9B3E6;
+    --p-line: #34408F;
+    --p-key: #22307F;
+    --p-key-ink: #F3F4FF;
+    --p-key-hover: #2D3D9C;
+    --p-drawer: #0D1438;
+    --p-focus: #F4B63F;
+    --p-ph: #7F8BD0;
+  }
+  .panel--latin {
+    --p-bg: #FFFFFF;
+    --p-ink: #131A3A;
+    --p-muted: #566089;
+    --p-line: #C6CDE3;
+    --p-key: #EDF0F9;
+    --p-key-ink: #131A3A;
+    --p-key-hover: #DDE3F5;
+    --p-drawer: #F6F7FC;
+    --p-focus: #131C4D;
+    --p-ph: #6B7597;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0A0E26;
+      --ink: #E9ECFA;
+      --muted: #9AA5D6;
+      --mark: #B9C3FA;
+      --tile-line: #2B356B;
+    }
+    .panel--latin {
+      --p-bg: #111737;
+      --p-ink: #E9ECFA;
+      --p-muted: #98A3D4;
+      --p-line: #2B356B;
+      --p-key: #1B2350;
+      --p-key-ink: #E9ECFA;
+      --p-key-hover: #26306A;
+      --p-drawer: #0C1130;
+      --p-focus: #F4B63F;
+      --p-ph: #7A85B5;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font: 1rem/1.55 var(--font-ui);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 clamp(1rem, 4vw, 2rem);
+  }
+
+  /* ---- En-tête : le mot Adlam écrit en Adlam, en grand ---- */
+  .masthead { padding: clamp(1.25rem, 4vw, 3rem) 0 1.5rem; }
+
+  .masthead-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.75rem, 5vw, 3rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+
+  .mark {
+    margin: 0;
+    font-family: var(--font-adlam);
+    font-weight: 700;
+    font-size: clamp(2.5rem, 10vw, 6.5rem);
+    line-height: 1;
+    color: var(--mark);
+    direction: rtl;
+    user-select: none;
+  }
+
+  .lede {
+    max-width: 50ch;
+    margin: 0.75rem 0 0;
+    color: var(--muted);
+  }
+
+  /* ---- Les deux panneaux et le bouton d'inversion ---- */
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .stage[data-first="adlam"] .panel--adlam { order: 1; }
+  .stage[data-first="adlam"] .panel--latin { order: 3; }
+  .stage[data-first="latin"] .panel--latin { order: 1; }
+  .stage[data-first="latin"] .panel--adlam { order: 3; }
+
+  @media (min-width: 860px) {
+    .stage { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  }
+
+  .swap {
+    order: 2;
+    justify-self: center;
+    align-self: center;
+    margin: 0.75rem 0;
+    width: 3.25rem;
+    height: 3.25rem;
+    border: 0;
+    border-radius: 50%;
+    background: var(--saffron);
+    color: var(--on-saffron);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .swap:hover { background: var(--saffron-hi); }
+  .swap:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+  @media (min-width: 860px) {
+    .swap { margin: 0 0.875rem; }
+  }
+
+  .swap svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    transform: rotate(calc(var(--base, 0deg) + var(--flip, 0deg)));
+    transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .stage[data-first="latin"] .swap svg { --flip: 180deg; }
+  @media (max-width: 859.98px) {
+    .swap svg { --base: 90deg; }
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 1rem clamp(1rem, 2.5vw, 1.5rem);
+    background: var(--p-bg);
+    color: var(--p-ink);
+    border: 1px solid var(--p-line);
+    border-radius: var(--r-panel);
+  }
+  .panel:focus-within {
+    border-color: var(--p-focus);
+    box-shadow: 0 0 0 1px var(--p-focus);
+  }
+
+  .panel-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .panel-title {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.1rem 0.6rem;
+    font-size: 1.125rem;
+    font-weight: 700;
+  }
+  .panel-note {
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--p-muted);
+  }
+
+  .tools { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+
+  .tool {
+    min-height: 40px;
+    padding: 0 0.875rem;
+    font: inherit;
+    font-size: 0.9375rem;
+    color: var(--p-ink);
+    background: transparent;
+    border: 1px solid var(--p-line);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .tool:hover:not(:disabled) { background: var(--p-key); }
+  .tool[aria-expanded="true"] { background: var(--p-key); border-color: var(--p-focus); }
+  .tool:disabled { opacity: 0.45; cursor: default; }
+  .tool:focus-visible, .key:focus-visible {
+    outline: 3px solid var(--p-focus);
+    outline-offset: 2px;
+  }
+
+  @media (pointer: coarse) {
+    .tool { min-height: 44px; }
+  }
+
+  .field {
+    flex: 1;
+    width: 100%;
+    min-height: clamp(7rem, 22vh, 10rem);
+    max-height: 32rem;
+    padding: 0.5rem 0;
+    margin: 0;
+    resize: vertical;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--p-ink);
+    caret-color: var(--p-focus);
+  }
+  .field::placeholder { color: var(--p-ph); opacity: 1; }
+  .field::selection { background: var(--saffron); color: var(--on-saffron); }
+  @supports (field-sizing: content) {
+    .field { field-sizing: content; resize: none; }
+  }
+
+  .field--adlam {
+    font-family: var(--font-adlam);
+    font-size: clamp(1.9rem, 4.5vw, 2.5rem);
+    line-height: 1.7;
+  }
+  .field--latin {
+    font-family: var(--font-ui);
+    font-size: clamp(1.35rem, 3vw, 1.75rem);
+    line-height: 1.5;
+  }
+
+  .count {
+    margin: 0.25rem 0 0;
+    font-size: 0.875rem;
+    color: var(--p-muted);
+  }
+
+  /* ---- Claviers à l'écran ---- */
+  .drawer {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    background: var(--p-drawer);
+    border-radius: var(--r-drawer);
+  }
+
+  .keys {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(3.25rem, 1fr));
+    gap: 0.375rem;
+  }
+  .keys--adlam { direction: rtl; }
+  .keys--fn {
+    margin-top: 0.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(5.75rem, 1fr));
+    direction: ltr;
+  }
+
+  .key {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 3.25rem;
+    padding: 0.25rem 0;
+    font: inherit;
+    color: var(--p-key-ink);
+    background: var(--p-key);
+    border: 0;
+    border-radius: var(--r-key);
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .key:hover { background: var(--p-key-hover); }
+  .key:active { transform: translateY(1px); }
+  .key[aria-pressed="true"] { background: var(--saffron); color: var(--on-saffron); }
+
+  .key-glyph {
+    font-family: var(--font-adlam);
+    font-size: 1.5rem;
+    line-height: 1.15;
+  }
+  .key-glyph--latin {
+    font-family: var(--font-ui);
+    font-size: 1.375rem;
+  }
+  .key-hint {
+    font-size: 0.75rem;
+    line-height: 1;
+    color: var(--p-muted);
+  }
+  .key[aria-pressed="true"] .key-hint { color: inherit; }
+
+  .key--text {
+    min-height: 2.75rem;
+    font-size: 0.9375rem;
+  }
+
+  /* ---- Notes et pied de page ---- */
+  .notes { margin-top: 2rem; max-width: 62ch; }
+  .notes summary {
+    display: list-item;
+    list-style-position: inside;
+    padding: 0.6rem 0;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .notes summary:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .notes p, .notes li { color: var(--muted); }
+  .notes ul { padding-left: 1.2rem; }
+  .notes code {
+    font-family: var(--font-ui);
+    padding: 0.05em 0.4em;
+    background: color-mix(in srgb, var(--ink) 10%, transparent);
+    border-radius: 6px;
+  }
+
+  footer {
+    padding: 2rem 0 3rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .tool--primary {
+    color: var(--on-saffron);
+    background: var(--saffron);
+    border-color: transparent;
+    font-weight: 700;
+  }
+  .tool--primary:hover:not(:disabled) { background: var(--saffron-hi); }
+
+  /* ---- Bande lettre par lettre : chaque tuile reprend les deux panneaux (Adlam en haut, latin en bas) ---- */
+  .strip { margin-top: 2.5rem; }
+  .strip h2 { margin: 0; font-size: 1.125rem; }
+  .strip-lede { margin: 0.25rem 0 1rem; max-width: 62ch; color: var(--muted); }
+
+  .tiles {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 0.5rem;
+  }
+  .tiles:empty { display: none; }
+
+  .tile {
+    display: flex;
+    flex-direction: column;
+    min-width: 2.75rem;
+    overflow: hidden;
+    border: 1px solid var(--tile-line);
+    border-radius: var(--r-key);
+    transition: transform 0.12s;
+  }
+  .tile:hover { transform: translateY(-2px); }
+  .tile.is-new { animation: tile-in 0.26s cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+  @keyframes tile-in {
+    from { opacity: 0; transform: translateY(10px) scale(0.9); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .tile-top, .tile-bottom {
+    padding: 0 0.6rem;
+    text-align: center;
+    background: var(--p-bg);
+    color: var(--p-ink);
+  }
+  .tile-top {
+    font-family: var(--font-adlam);
+    font-size: 1.9rem;
+    line-height: 1.55;
+    direction: rtl;
+    unicode-bidi: isolate;
+  }
+  .tile-bottom {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    border-top: 1px solid var(--p-line);
+  }
+
+  .tile--space { min-width: 0; width: 0.9rem; border: 0; }
+  .tile--break { min-width: 0; flex-basis: 100%; height: 0; border: 0; }
+  .tile--other {
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.6rem;
+    color: var(--muted);
+    border-style: dashed;
+  }
+
+  .tiles-empty, .tiles-note { margin: 0; color: var(--muted); }
+  .tiles-empty[hidden], .tiles-note[hidden] { display: none; }
+
+  /* ---- Boîte de dialogue : image à partager ---- */
+  dialog {
+    width: min(92vw, 34rem);
+    max-height: 94vh;
+    padding: 0;
+    color: var(--p-ink);
+    background: var(--p-bg);
+    border: 1px solid var(--p-line);
+    border-radius: var(--r-panel);
+  }
+  dialog::backdrop { background: rgb(10 14 38 / 0.62); }
+
+  .dlg { display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem; margin: 0; }
+  .dlg h2 { margin: 0; font-size: 1.125rem; }
+  .dlg img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 55vh;
+    object-fit: contain;
+    background: #131C4D;
+    border-radius: var(--r-drawer);
+  }
+  .check { display: flex; align-items: center; gap: 0.6rem; min-height: 44px; }
+  .check input { width: 1.25rem; height: 1.25rem; accent-color: var(--saffron); }
+  .dlg-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }
+
+  /* ---- Pied de page ---- */
+  .foot-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.5rem; }
+  footer p { margin: 0 0 0.5rem; }
+  footer a { color: inherit; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .swap svg, .swap { transition: none; }
+    .tile, .tile.is-new { transition: none; animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="masthead-row">
+      <h1>__NAME__</h1>
+      <p class="mark" lang="ff-Adlm" aria-hidden="true">𞤀𞤣𞤤𞤢𞤥</p>
+    </div>
+    <p class="lede">Écris dans l'une des deux écritures du pular : l'autre se met à jour à chaque lettre.</p>
+  </header>
+
+  <noscript><p>Cet outil a besoin de JavaScript pour convertir le texte.</p></noscript>
+
+  <main>
+    <div class="stage" id="stage" data-first="adlam">
+
+      <section class="panel panel--adlam" id="adlamPanel" aria-labelledby="adlamTitle">
+        <div class="panel-head">
+          <h2 class="panel-title" id="adlamTitle">Adlam <span class="panel-note">écrit de droite à gauche</span></h2>
+          <div class="tools">
+            <button type="button" class="tool" id="adlamKbBtn" aria-expanded="false" aria-controls="adlamKb">Clavier</button>
+            <button type="button" class="tool" id="adlamCopy" disabled>Copier</button>
+            <button type="button" class="tool" id="adlamImage" disabled>Image</button>
+            <button type="button" class="tool" data-clear disabled>Effacer</button>
+          </div>
+        </div>
+        <textarea class="field field--adlam" id="adlamText" lang="ff-Adlm" dir="rtl"
+                  placeholder="𞤀𞤣𞤤𞤢𞤥" aria-label="Texte en Adlam"
+                  spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="none"></textarea>
+        <div class="drawer" id="adlamKb" hidden></div>
+        <p class="count" id="adlamCount">0 caractère</p>
+      </section>
+
+      <button type="button" class="swap" id="swapBtn" aria-label="Inverser l'ordre des colonnes" title="Inverser l'ordre des colonnes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 8h15M15 4l4 4-4 4"/>
+          <path d="M20 16H5M9 12l-4 4 4 4"/>
+        </svg>
+      </button>
+
+      <section class="panel panel--latin" id="latinPanel" aria-labelledby="latinTitle">
+        <div class="panel-head">
+          <h2 class="panel-title" id="latinTitle">Latin <span class="panel-note">orthographe Bamako/UNESCO</span></h2>
+          <div class="tools">
+            <button type="button" class="tool" id="latinKbBtn" aria-expanded="false" aria-controls="latinKb">Lettres spéciales</button>
+            <button type="button" class="tool" id="latinCopy" disabled>Copier</button>
+            <button type="button" class="tool" data-clear disabled>Effacer</button>
+          </div>
+        </div>
+        <textarea class="field field--latin" id="latinText" lang="ff-Latn"
+                  placeholder="Écris ou colle du texte latin" aria-label="Texte en alphabet latin"
+                  spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="none"></textarea>
+        <div class="drawer" id="latinKb" hidden></div>
+        <p class="count" id="latinCount">0 caractère</p>
+      </section>
+
+    </div>
+
+    <section class="strip" aria-labelledby="stripTitle">
+      <h2 id="stripTitle">Lettre par lettre</h2>
+      <p class="strip-lede">Chaque tuile relie une lettre Adlam à son équivalent latin. Le nom Unicode de la lettre s'affiche au survol.</p>
+      <div class="tiles" id="tiles" aria-hidden="true"></div>
+      <p class="tiles-empty" id="tilesEmpty">Écris quelque chose pour voir les lettres se relier.</p>
+      <p class="tiles-note" id="tilesNote" hidden>Aperçu limité aux 400 premiers éléments.</p>
+    </section>
+
+    <p class="sr-only" id="live" role="status"></p>
+
+    <details class="notes">
+      <summary>Comment la conversion fonctionne</summary>
+      <ul>
+        <li>Latin vers Adlam : une lettre doublée (<code>ii</code>, <code>ll</code>) devient une marque d'allongement ou de gémination, comme en Adlam.</li>
+        <li>Ces groupes sont lus comme une seule lettre : <code>gb</code> <code>kp</code> <code>sh</code> <code>ny</code> <code>bh</code> <code>dh</code> <code>yh</code> <code>kh</code>. <code>ny</code> et <code>ñ</code> sont la même lettre : le latin affiche toujours <code>ñ</code>.</li>
+        <li>Des groupes comme <code>nd</code> ou <code>ng</code> (<code>ngaari</code>) s'écrivent lettre par lettre. La lettre <code>ŋ</code> est différente de <code>ng</code> : utilise « Lettres spéciales » pour la saisir.</li>
+        <li>Adlam vers latin : les marques deviennent des lettres doublées, et la marque de nasalisation devient <code>n</code>.</li>
+        <li>Il n'y a pas de dictionnaire derrière : les cas qui dépendent du mot entier ne sont pas traités.</li>
+        <li>Les correspondances viennent du bloc Adlam d'Unicode 17.0 (U+1E900 à U+1E95F).</li>
+      </ul>
+    </details>
+  </main>
+
+  <footer>
+    <div class="foot-row">
+      <p>__COPYRIGHT__ Outil communautaire, sans garantie de couverture dialectale complète.</p>
+      <span class="panel--latin"><button type="button" class="tool" id="installBtn" hidden>Installer l'application</button></span>
+    </div>
+    <p>Polices : Noto Sans Adlam (© The Noto Project Authors) et Andika (© SIL International), sous licence <a href="https://openfontlicense.org">SIL Open Font 1.1</a>.</p>
+  </footer>
+
+  <dialog class="panel--latin" id="imgDialog" aria-labelledby="imgTitle">
+    <form method="dialog" class="dlg">
+      <h2 id="imgTitle">Image à partager</h2>
+      <img id="imgPreview" alt="Aperçu de l'image">
+      <label class="check"><input type="checkbox" id="imgLatin" checked> Ajouter le texte latin</label>
+      <div class="dlg-actions">
+        <button type="button" class="tool tool--primary" id="imgShare" hidden>Partager</button>
+        <button type="button" class="tool tool--primary" id="imgDownload">Télécharger</button>
+        <button type="submit" class="tool" value="close">Fermer</button>
+      </div>
+    </form>
+  </dialog>
+</div>
+
+<script>
+// =====================================================================
+//  Tables de correspondance : c'est ici qu'on corrige l'orthographe.
+// =====================================================================
+// ==== ENGINE:BEGIN
+// [codepoint capitale, codepoint minuscule, latin]
+const BASE_LETTERS = [
+  [0x1E900, 0x1E922, "a"], [0x1E901, 0x1E923, "d"], [0x1E902, 0x1E924, "l"],
+  [0x1E903, 0x1E925, "m"], [0x1E904, 0x1E926, "b"], [0x1E905, 0x1E927, "s"],
+  [0x1E906, 0x1E928, "p"], [0x1E907, 0x1E929, "ɓ"], [0x1E908, 0x1E92A, "r"],
+  [0x1E909, 0x1E92B, "e"], [0x1E90A, 0x1E92C, "f"], [0x1E90B, 0x1E92D, "i"],
+  [0x1E90C, 0x1E92E, "o"], [0x1E90D, 0x1E92F, "ɗ"], [0x1E90E, 0x1E930, "ƴ"],
+  [0x1E90F, 0x1E931, "w"], [0x1E910, 0x1E932, "n"], [0x1E911, 0x1E933, "k"],
+  [0x1E912, 0x1E934, "y"], [0x1E913, 0x1E935, "u"], [0x1E914, 0x1E936, "j"],
+  [0x1E915, 0x1E937, "c"], [0x1E916, 0x1E938, "h"], [0x1E917, 0x1E939, "q"],
+  [0x1E918, 0x1E93A, "g"], [0x1E919, 0x1E93B, "ñ"], [0x1E91A, 0x1E93C, "t"],
+  [0x1E91B, 0x1E93D, "ŋ"], [0x1E91C, 0x1E93E, "v"], [0x1E91D, 0x1E93F, "x"],
+  [0x1E91E, 0x1E940, "gb"], [0x1E91F, 0x1E941, "z"], [0x1E920, 0x1E942, "kp"],
+  [0x1E921, 0x1E943, "sh"],
+];
+
+// Variantes de saisie latine -> lettre de la table ci-dessus.
+// ny et ñ sont la même lettre (le latin affiche toujours ñ) ; ɲ est l'ancienne graphie, toujours acceptée.
+// ng n'est pas un alias de ŋ (ngaari = n + g).
+const LATIN_ALIASES = { ny: "ñ", "ɲ": "ñ", bh: "ɓ", dh: "ɗ", yh: "ƴ", kh: "x" };
+
+const ALIF_LENGTHENER = 0x1E944, VOWEL_LENGTHENER = 0x1E945, GEMINATION_MARK = 0x1E946,
+      HAMZA = 0x1E947, CONSONANT_MODIFIER = 0x1E948, GEMINATE_CONSONANT_MODIFIER = 0x1E949,
+      NUKTA = 0x1E94A, NASALIZATION_MARK = 0x1E94B;
+
+const FIRST_CAPITAL = 0x1E900, LAST_CAPITAL = 0x1E921;
+
+const DIGITS = [...Array(10).keys()].map(i => [0x1E950 + i, String(i)]);
+const PUNCTUATION = [[0x1E95E, "!"], [0x1E95F, "?"]];
+const VOWELS = new Set("aeiou");
+
+const adlamToLatin = {};
+const latinToAdlamCap = {};
+const latinToAdlamSmall = {};
+
+for (const [cap, small, lat] of BASE_LETTERS) {
+  adlamToLatin[String.fromCodePoint(cap)] = lat;
+  adlamToLatin[String.fromCodePoint(small)] = lat;
+  latinToAdlamCap[lat] = String.fromCodePoint(cap);
+  latinToAdlamSmall[lat] = String.fromCodePoint(small);
+}
+for (const [cp, d] of DIGITS) adlamToLatin[String.fromCodePoint(cp)] = d;
+for (const [cp, p] of PUNCTUATION) adlamToLatin[String.fromCodePoint(cp)] = p;
+
+const digitToAdlam = Object.fromEntries(DIGITS.map(([cp, d]) => [d, String.fromCodePoint(cp)]));
+const punctToAdlam = Object.fromEntries(PUNCTUATION.map(([cp, p]) => [p, String.fromCodePoint(cp)]));
+
+// Un « segment » relie un bout d'Adlam à son équivalent latin : { adlam, latin, kind }.
+// kind : letter | mark | space | break | other.
+// Les deux conversions de texte ci-dessous sont construites à partir des segments,
+// donc la bande « lettre par lettre » montre exactement ce que fait la conversion.
+function whitespaceKind(ch) { return /[\r\n]/.test(ch) ? "break" : "space"; }
+
+function adlamSegments(text) {
+  const segs = [];      // { adlam, pieces: [morceaux de latin], kind }
+  let owner = null;     // segment qui a produit le dernier morceau de latin
+  const emit = (seg, piece) => { seg.pieces.push(piece); owner = seg; };
+  const attachMark = (ch, tail) => {
+    if (tail) tail.adlam += ch;
+    else segs.push({ adlam: ch, pieces: [], kind: "mark" });
+  };
+
+  for (const ch of text) {
+    const cp = ch.codePointAt(0);
+    const tail = segs[segs.length - 1];
+    const lastPiece = owner ? owner.pieces[owner.pieces.length - 1] : undefined;
+
+    if (cp === GEMINATION_MARK || cp === GEMINATE_CONSONANT_MODIFIER) {
+      attachMark(ch, tail);
+      if (lastPiece && /^\p{L}/u.test(lastPiece)) owner.pieces.push(lastPiece.toLowerCase());
+      continue;
+    }
+    if (cp === VOWEL_LENGTHENER || cp === ALIF_LENGTHENER) {
+      attachMark(ch, tail);
+      if (lastPiece && VOWELS.has(lastPiece.toLowerCase())) owner.pieces.push(lastPiece.toLowerCase());
+      continue;
+    }
+    if (cp === NASALIZATION_MARK) {
+      const seg = { adlam: ch, pieces: [], kind: "letter" };
+      segs.push(seg);
+      emit(seg, "n");
+      continue;
+    }
+    if (cp === HAMZA || cp === NUKTA || cp === CONSONANT_MODIFIER) {
+      attachMark(ch, tail);   // pas d'équivalent simple en latin : on ignore sans rien produire
+      continue;
+    }
+
+    const latin = adlamToLatin[ch];
+    const seg = { adlam: ch, pieces: [], kind: "other" };
+    segs.push(seg);
+    if (latin === undefined) {
+      if (/\s/.test(ch)) seg.kind = whitespaceKind(ch);
+      emit(seg, ch);
+    } else {
+      seg.kind = "letter";
+      const isCapital = cp >= FIRST_CAPITAL && cp <= LAST_CAPITAL;
+      emit(seg, isCapital ? latin[0].toUpperCase() + latin.slice(1) : latin);
+    }
+  }
+  return segs.map(s => ({ adlam: s.adlam, latin: s.pieces.join(""), kind: s.kind }));
+}
+
+// Cherche la plus longue lettre latine (2 puis 1 caractère) à partir de i.
+function matchLongest(text, i) {
+  for (const length of [2, 1]) {
+    if (i + length <= text.length) {
+      let chunk = text.slice(i, i + length).toLowerCase();
+      chunk = LATIN_ALIASES[chunk] || chunk;
+      if (latinToAdlamCap[chunk] !== undefined) return [chunk, length];
+    }
+  }
+  return [null, 0];
+}
+
+function latinSegments(text) {
+  const segs = [];
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (/[0-9]/.test(ch)) { segs.push({ latin: ch, adlam: digitToAdlam[ch] ?? ch, kind: "letter" }); i++; continue; }
+    if (punctToAdlam[ch]) { segs.push({ latin: ch, adlam: punctToAdlam[ch], kind: "letter" }); i++; continue; }
+    if (/\s/.test(ch)) { segs.push({ latin: ch, adlam: ch, kind: whitespaceKind(ch) }); i++; continue; }
+
+    const [chunk, length] = matchLongest(text, i);
+    if (chunk === null) {
+      // Caractère inconnu : conservé tel quel (une paire de substitution reste d'un seul bloc)
+      const code = text.charCodeAt(i);
+      const n = (code >= 0xD800 && code <= 0xDBFF && i + 1 < text.length) ? 2 : 1;
+      const piece = text.slice(i, i + n);
+      segs.push({ latin: piece, adlam: piece, kind: "other" });
+      i += n;
+      continue;
+    }
+
+    const isUpper = ch !== ch.toLowerCase();
+    const base = isUpper ? latinToAdlamCap[chunk] : latinToAdlamSmall[chunk];
+
+    // Lettre doublée : marque d'allongement (voyelle) ou de gémination (consonne)
+    const [nextChunk, nextLen] = matchLongest(text, i + length);
+    if (nextChunk === chunk) {
+      const pairLatin = text.slice(i, i + length + nextLen);
+      if (VOWELS.has(chunk)) {
+        segs.push({ latin: pairLatin, adlam: base + String.fromCodePoint(VOWEL_LENGTHENER), kind: "letter" });
+      } else {
+        // Consonne doublée : gémination seulement devant une voyelle (« ullu »);
+        // devant une consonne ou en fin de mot (« winnden »), les deux lettres restent.
+        const [after] = matchLongest(text, i + length + nextLen);
+        if (after !== null && VOWELS.has(after)) {
+          segs.push({ latin: pairLatin, adlam: base + String.fromCodePoint(GEMINATION_MARK), kind: "letter" });
+        } else {
+          const second = text[i + length];
+          const base2 = second !== second.toLowerCase() ? latinToAdlamCap[chunk] : latinToAdlamSmall[chunk];
+          segs.push({ latin: text.slice(i, i + length), adlam: base, kind: "letter" });
+          segs.push({ latin: text.slice(i + length, i + length + nextLen), adlam: base2, kind: "letter" });
+        }
+      }
+      i += length + nextLen;
+      continue;
+    }
+    segs.push({ latin: text.slice(i, i + length), adlam: base, kind: "letter" });
+    i += length;
+  }
+  return segs;
+}
+
+const adlamToLatinText = text => adlamSegments(text).map(s => s.latin).join("");
+const latinToAdlamText = text => latinSegments(text).map(s => s.adlam).join("");
+// ==== ENGINE:END
+
+// =====================================================================
+//  Interface
+// =====================================================================
+const APP_NAME = __NAME_JS__;
+const APP_AUTHOR = __AUTHOR_JS__;   // vide tant que la signature n'est pas définie
+const APP_YEAR = __YEAR__;
+const ADLAM_NAMES = /*__NAMES__*/{};
+
+const $ = id => document.getElementById(id);
+
+const stage = $('stage');
+const adlamPanel = $('adlamPanel'), latinPanel = $('latinPanel');
+const adlamEl = $('adlamText'), latinEl = $('latinText');
+const adlamCopy = $('adlamCopy'), latinCopy = $('latinCopy'), adlamImage = $('adlamImage');
+const tiles = $('tiles'), tilesEmpty = $('tilesEmpty'), tilesNote = $('tilesNote');
+const live = $('live');
+
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const MAX_TILES = 400;
+let source = 'latin';   // champ modifié en dernier : il décide du sens de lecture de la bande
+
+function countLabel(text) {
+  const n = [...text].length;
+  return n + (n > 1 ? ' caractères' : ' caractère');
+}
+
+function refresh() {
+  $('adlamCount').textContent = countLabel(adlamEl.value);
+  $('latinCount').textContent = countLabel(latinEl.value);
+  adlamCopy.disabled = !adlamEl.value;
+  latinCopy.disabled = !latinEl.value;
+  adlamImage.disabled = !adlamEl.value.trim();
+  const empty = !adlamEl.value && !latinEl.value;
+  document.querySelectorAll('[data-clear]').forEach(b => { b.disabled = empty; });
+}
+
+// ---- Bande « lettre par lettre » ----
+function unicodeName(text) {
+  const cp = text.codePointAt(0);
+  const name = ADLAM_NAMES[cp];
+  return name ? `${name} (U+${cp.toString(16).toUpperCase()})` : '';
+}
+
+function renderTiles(segs) {
+  tiles.dir = source === 'adlam' ? 'rtl' : 'ltr';
+  tilesEmpty.hidden = segs.length > 0;
+  tilesNote.hidden = segs.length <= MAX_TILES;
+  const shown = segs.slice(0, MAX_TILES);
+
+  while (tiles.children.length > shown.length) tiles.lastElementChild.remove();
+
+  shown.forEach((s, i) => {
+    let el = tiles.children[i];
+    const isNew = !el;
+    if (isNew) { el = document.createElement('span'); tiles.appendChild(el); }
+
+    const key = `${s.kind}|${s.adlam}|${s.latin}`;
+    if (el.dataset.key === key) return;          // tuile inchangée : on n'y touche pas
+    el.dataset.key = key;
+    el.className = `tile tile--${s.kind}`;
+    el.replaceChildren();
+    el.removeAttribute('title');
+
+    if (s.kind === 'space' || s.kind === 'break') return;
+    if (s.kind === 'other') { el.textContent = s.adlam; return; }
+
+    const top = document.createElement('span');
+    top.className = 'tile-top panel--adlam';
+    top.lang = 'ff-Adlm';
+    top.textContent = s.adlam;
+    const bottom = document.createElement('span');
+    bottom.className = 'tile-bottom panel--latin';
+    bottom.textContent = s.latin || '–';
+    el.append(top, bottom);
+    el.title = unicodeName(s.adlam);
+
+    if (isNew && !reduceMotion.matches) {        // seules les nouvelles lettres apparaissent en animation
+      el.classList.add('is-new');
+      el.addEventListener('animationend', () => el.classList.remove('is-new'), { once: true });
+    }
+  });
+}
+
+// ---- Conversion : le champ modifié fournit les segments, l'autre champ et la bande en découlent ----
+function update(from) {
+  source = from;
+  let segs;
+  if (from === 'latin') {
+    segs = latinSegments(latinEl.value);
+    adlamEl.value = segs.map(s => s.adlam).join('');
+  } else {
+    segs = adlamSegments(adlamEl.value);
+    latinEl.value = segs.map(s => s.latin).join('');
+  }
+  renderTiles(segs);
+  refresh();
+}
+
+adlamEl.addEventListener('input', () => update('adlam'));
+latinEl.addEventListener('input', () => update('latin'));
+
+// ---- Effacer ----
+document.querySelectorAll('[data-clear]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    adlamEl.value = '';
+    latinEl.value = '';
+    renderTiles([]);
+    refresh();
+    btn.closest('.panel').querySelector('.field').focus();
+  });
+});
+
+// ---- Copier ----
+async function copyField(field, btn) {
+  const text = field.value;
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    field.select();
+    document.execCommand('copy');
+    field.setSelectionRange(text.length, text.length);
+  }
+  const label = btn.textContent;
+  btn.textContent = 'Copié';
+  live.textContent = 'Texte copié';
+  setTimeout(() => { btn.textContent = label; live.textContent = ''; }, 1600);
+}
+adlamCopy.addEventListener('click', () => copyField(adlamEl, adlamCopy));
+latinCopy.addEventListener('click', () => copyField(latinEl, latinCopy));
+
+// ---- Inverser l'ordre des colonnes ----
+function setFirst(which) {
+  stage.dataset.first = which;
+  try { localStorage.setItem('adlam-first', which); } catch {}
+}
+
+$('swapBtn').addEventListener('click', () => {
+  const before = [adlamPanel, latinPanel].map(el => el.getBoundingClientRect());
+  setFirst(stage.dataset.first === 'adlam' ? 'latin' : 'adlam');
+  if (reduceMotion.matches) return;
+  [adlamPanel, latinPanel].forEach((el, i) => {
+    const after = el.getBoundingClientRect();
+    const dx = before[i].left - after.left, dy = before[i].top - after.top;
+    el.animate(
+      [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
+      { duration: 320, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' }
+    );
+  });
+});
+
+try {
+  const saved = localStorage.getItem('adlam-first');
+  if (saved === 'adlam' || saved === 'latin') stage.dataset.first = saved;
+} catch {}
+
+// ---- Claviers à l'écran ----
+function insertAt(field, text) {
+  field.focus({ preventScroll: true });
+  field.setRangeText(text, field.selectionStart, field.selectionEnd, 'end');
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function deleteBefore(field) {
+  field.focus({ preventScroll: true });
+  let start = field.selectionStart;
+  const end = field.selectionEnd;
+  if (start === end) {
+    if (start === 0) return;
+    const unit = field.value.charCodeAt(start - 1);
+    const isLowSurrogate = unit >= 0xDC00 && unit <= 0xDFFF;
+    start -= (isLowSurrogate && start >= 2) ? 2 : 1;   // une lettre Adlam = 2 unités UTF-16
+  }
+  field.setRangeText('', start, end, 'end');
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function makeKey(className, onPress) {
+  const key = document.createElement('button');
+  key.type = 'button';
+  key.className = className;
+  key.addEventListener('mousedown', e => e.preventDefault());   // garde le curseur dans le champ
+  key.addEventListener('click', onPress);
+  return key;
+}
+
+function textKey(label, onPress) {
+  const key = makeKey('key key--text', onPress);
+  key.textContent = label;
+  return key;
+}
+
+function buildAdlamKeyboard(drawer) {
+  const letters = document.createElement('div');
+  letters.className = 'keys keys--adlam';
+  const fn = document.createElement('div');
+  fn.className = 'keys keys--fn';
+
+  let capitals = false;
+  const keys = [];
+
+  const shiftKey = textKey('Majuscule', () => setCapitals(!capitals));
+  shiftKey.setAttribute('aria-pressed', 'false');
+
+  function setCapitals(on) {
+    capitals = on;
+    shiftKey.setAttribute('aria-pressed', String(on));
+    for (const k of keys) {
+      k.glyph.textContent = String.fromCodePoint(on ? k.cap : k.small);
+      k.hint.textContent = on ? k.latin.charAt(0).toUpperCase() + k.latin.slice(1) : k.latin;
+      k.el.setAttribute('aria-label', k.hint.textContent);
+    }
+  }
+
+  for (const [cap, small, latin] of BASE_LETTERS) {
+    const el = makeKey('key', () => {
+      insertAt(adlamEl, String.fromCodePoint(capitals ? cap : small));
+      if (capitals) setCapitals(false);
+    });
+    const glyph = document.createElement('span');
+    glyph.className = 'key-glyph';
+    glyph.lang = 'ff-Adlm';
+    glyph.textContent = String.fromCodePoint(small);
+    const hint = document.createElement('span');
+    hint.className = 'key-hint';
+    hint.textContent = latin;
+    el.append(glyph, hint);
+    el.setAttribute('aria-label', latin);
+    letters.appendChild(el);
+    keys.push({ el, glyph, hint, cap, small, latin });
+  }
+
+  fn.append(
+    shiftKey,
+    textKey('Espace', () => insertAt(adlamEl, ' ')),
+    textKey('Gémination', () => insertAt(adlamEl, String.fromCodePoint(GEMINATION_MARK))),
+    textKey('Voyelle longue', () => insertAt(adlamEl, String.fromCodePoint(VOWEL_LENGTHENER))),
+    textKey('Nasalisation', () => insertAt(adlamEl, String.fromCodePoint(NASALIZATION_MARK))),
+    textKey('Supprimer', () => deleteBefore(adlamEl)),
+  );
+  drawer.append(letters, fn);
+}
+
+function buildLatinKeyboard(drawer) {
+  // Lettres hors alphabet latin de base, prises dans la table : ɓ ɗ ƴ ñ ŋ (et leurs majuscules)
+  const special = BASE_LETTERS.map(l => l[2]).filter(l => /[^\x00-\x7f]/.test(l));
+  const letters = document.createElement('div');
+  letters.className = 'keys';
+  const fn = document.createElement('div');
+  fn.className = 'keys keys--fn';
+
+  for (const lower of special) {
+    for (const ch of [lower, lower.toUpperCase()]) {
+      const el = makeKey('key', () => insertAt(latinEl, ch));
+      const glyph = document.createElement('span');
+      glyph.className = 'key-glyph key-glyph--latin';
+      glyph.textContent = ch;
+      el.appendChild(glyph);
+      el.setAttribute('aria-label', ch);
+      letters.appendChild(el);
+    }
+  }
+  fn.append(
+    textKey('Espace', () => insertAt(latinEl, ' ')),
+    textKey('Supprimer', () => deleteBefore(latinEl)),
+  );
+  drawer.append(letters, fn);
+}
+
+function wireKeyboard(button, drawer, field, build) {
+  let built = false;
+  button.addEventListener('click', () => {
+    const opening = drawer.hidden;
+    if (opening && !built) { build(drawer); built = true; }
+    drawer.hidden = !opening;
+    button.setAttribute('aria-expanded', String(opening));
+    // Sur téléphone, le clavier natif ne doit pas s'ouvrir par-dessus le clavier à l'écran.
+    field.inputMode = opening ? 'none' : '';
+  });
+}
+wireKeyboard($('adlamKbBtn'), $('adlamKb'), adlamEl, buildAdlamKeyboard);
+wireKeyboard($('latinKbBtn'), $('latinKb'), latinEl, buildLatinKeyboard);
+
+// ---- Image à partager ----
+const CARD = { width: 1080, pad: 96, bg: '#131C4D', ink: '#F3F4FF', muted: '#A9B3E6', accent: '#F4B63F' };
+
+function wrapLines(ctx, text, maxWidth) {
+  const lines = [];
+  for (const paragraph of text.split(/\r?\n/)) {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    if (!words.length) { lines.push(''); continue; }
+    let line = words[0];
+    for (const word of words.slice(1)) {
+      const attempt = line + ' ' + word;
+      if (ctx.measureText(attempt).width <= maxWidth) line = attempt;
+      else { lines.push(line); line = word; }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+async function renderCard(adlam, latin, withLatin) {
+  await Promise.all([
+    document.fonts.load('400 100px "Noto Sans Adlam"', adlam),
+    document.fonts.load('400 44px "Andika"', latin || 'Aa'),
+    document.fonts.load('700 34px "Andika"', APP_NAME || 'Aa'),
+  ]);
+
+  const inner = CARD.width - 2 * CARD.pad;
+  const probe = document.createElement('canvas').getContext('2d');
+
+  // Plus le texte est long, plus la lettre rétrécit (jusqu'à 6 lignes), puis la carte s'allonge.
+  probe.direction = 'rtl';
+  let size = 40, lines = [];
+  for (const candidate of [128, 108, 92, 78, 66, 56, 48, 40]) {
+    probe.font = `400 ${candidate}px "Noto Sans Adlam"`;
+    lines = wrapLines(probe, adlam, inner);
+    size = candidate;
+    if (lines.length <= 6 && lines.every(l => probe.measureText(l).width <= inner)) break;
+  }
+  const lineHeight = Math.round(size * 1.75);
+  const adlamHeight = lines.length * lineHeight;
+
+  probe.direction = 'ltr';
+  probe.font = '400 44px "Andika", sans-serif';
+  const latinLines = withLatin ? wrapLines(probe, latin, inner) : [];
+  const latinHeight = latinLines.length * 66;
+  const gap = latinLines.length ? 48 : 0;
+  const footerHeight = 160;
+  const height = Math.max(720, CARD.pad + adlamHeight + gap + latinHeight + footerHeight);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = CARD.width;
+  canvas.height = height;
+  const g = canvas.getContext('2d');
+  g.fillStyle = CARD.bg;
+  g.fillRect(0, 0, CARD.width, height);
+  g.textBaseline = 'alphabetic';
+
+  // Adlam : aligné à droite, comme son sens de lecture
+  g.direction = 'rtl';
+  g.textAlign = 'right';
+  g.font = `400 ${size}px "Noto Sans Adlam"`;
+  g.fillStyle = CARD.ink;
+  let y = CARD.pad + Math.round(size * 1.15);
+  for (const line of lines) { g.fillText(line, CARD.width - CARD.pad, y); y += lineHeight; }
+
+  // Latin : aligné à gauche, comme le sien
+  g.direction = 'ltr';
+  g.textAlign = 'left';
+  g.font = '400 44px "Andika", sans-serif';
+  g.fillStyle = CARD.muted;
+  y = CARD.pad + adlamHeight + gap + 44;
+  for (const line of latinLines) { g.fillText(line, CARD.pad, y); y += 66; }
+
+  // Pied : nom de l'outil, et signature si elle est définie
+  const footerBaseline = height - 64;
+  g.fillStyle = CARD.accent;
+  g.fillRect(CARD.pad, height - footerHeight + 36, 72, 6);
+  g.fillStyle = CARD.ink;
+  g.font = '700 34px "Andika", sans-serif';
+  g.fillText(APP_NAME, CARD.pad, footerBaseline);
+  if (APP_AUTHOR) {
+    g.textAlign = 'right';
+    g.fillStyle = CARD.muted;
+    g.font = '400 26px "Andika", sans-serif';
+    g.fillText(`© ${APP_YEAR} ${APP_AUTHOR}`, CARD.width - CARD.pad, footerBaseline);
+  }
+
+  return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+}
+
+const imgDialog = $('imgDialog'), imgPreview = $('imgPreview'), imgLatin = $('imgLatin');
+const imgShare = $('imgShare'), imgDownload = $('imgDownload');
+let imgBlob = null, imgUrl = null, imgJob = 0;
+const imgFile = () => new File([imgBlob], 'adlam.png', { type: 'image/png' });
+
+async function buildImage() {
+  const job = ++imgJob;
+  const blob = await renderCard(adlamEl.value.trim(), latinEl.value.trim(), imgLatin.checked);
+  if (job !== imgJob || !blob) return;   // une demande plus récente a pris le relais
+  imgBlob = blob;
+  if (imgUrl) URL.revokeObjectURL(imgUrl);
+  imgUrl = URL.createObjectURL(blob);
+  imgPreview.src = imgUrl;
+  imgShare.hidden = !(navigator.canShare && navigator.canShare({ files: [imgFile()] }));
+}
+
+adlamImage.addEventListener('click', () => {
+  if (!adlamEl.value.trim()) return;
+  imgDialog.showModal();
+  buildImage();
+});
+imgLatin.addEventListener('change', buildImage);
+
+imgDownload.addEventListener('click', () => {
+  if (!imgUrl) return;
+  const link = document.createElement('a');
+  link.href = imgUrl;
+  link.download = 'adlam.png';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+});
+
+imgShare.addEventListener('click', async () => {
+  if (!imgBlob) return;
+  try {
+    await navigator.share({ files: [imgFile()], title: APP_NAME });
+  } catch (err) {
+    if (err.name !== 'AbortError') live.textContent = "Le partage n'a pas fonctionné. Utilise Télécharger.";
+  }
+});
+
+imgDialog.addEventListener('click', e => { if (e.target === imgDialog) imgDialog.close(); });
+imgDialog.addEventListener('close', () => {
+  imgJob++;
+  imgPreview.removeAttribute('src');
+  if (imgUrl) { URL.revokeObjectURL(imgUrl); imgUrl = null; }
+});
+
+// ---- Installation et usage hors ligne ----
+const installBtn = $('installBtn');
+let installPrompt = null;
+addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  installPrompt = e;
+  installBtn.hidden = false;
+});
+installBtn.addEventListener('click', async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt = null;
+  installBtn.hidden = true;
+});
+addEventListener('appinstalled', () => { installBtn.hidden = true; });
+
+const secureEnough = location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname);
+if ('serviceWorker' in navigator && secureEnough) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ---- Exemple au chargement ----
+latinEl.value = 'Pular';
+update('latin');
+</script>
+
+</body>
+</html>
