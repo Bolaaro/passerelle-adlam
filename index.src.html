@@ -587,6 +587,7 @@
       <h2 id="imgTitle">Image à partager</h2>
       <img id="imgPreview" alt="Aperçu de l'image">
       <label class="check"><input type="checkbox" id="imgLatin" checked> Ajouter le texte latin</label>
+      <label class="check"><input type="checkbox" id="imgFlip"> Adlam à l'envers ? Coche pour corriger</label>
       <div class="dlg-actions">
         <button type="button" class="tool tool--primary" id="imgShare" hidden>Partager</button>
         <button type="button" class="tool tool--primary" id="imgDownload">Télécharger</button>
@@ -1111,7 +1112,7 @@ function wrapLines(ctx, text, maxWidth) {
   return lines;
 }
 
-async function renderCard(adlam, latin, withLatin) {
+async function renderCard(adlam, latin, withLatin, flip = false) {
   await Promise.all([
     document.fonts.load('400 100px "Noto Sans Adlam"', adlam),
     document.fonts.load('400 44px "Andika"', latin || 'Aa'),
@@ -1158,13 +1159,19 @@ async function renderCard(adlam, latin, withLatin) {
   g.font = `400 ${size}px "Noto Sans Adlam"`;
   g.fillStyle = CARD.ink;
   const spaceWidth = g.measureText(' ').width;
+  // Certains navigateurs (Safari sur iPhone) ne réordonnent pas correctement l'Adlam dans un canvas.
+  // U+202E (forcer droite à gauche) rend l'ordre indépendant de ce choix ; la case « corriger »
+  // inverse en plus les lettres du mot si malgré cela l'image sort à l'envers.
+  const RLO = '\u202E', PDF = '\u202C';
+  const forDraw = word => flip ? RLO + [...word].reverse().join('') + PDF : RLO + word + PDF;
   let y = CARD.pad + Math.round(size * 1.15);
   for (const line of lines) {
     let x = CARD.width - CARD.pad;
     for (const word of line.split(' ')) {
       if (!word) { x -= spaceWidth; continue; }
-      x -= g.measureText(word).width;
-      g.fillText(word, x, y);
+      const drawn = forDraw(word);
+      x -= g.measureText(drawn).width;
+      g.fillText(drawn, x, y);
       x -= spaceWidth;
     }
     y += lineHeight;
@@ -1195,14 +1202,14 @@ async function renderCard(adlam, latin, withLatin) {
   return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
 }
 
-const imgDialog = $('imgDialog'), imgPreview = $('imgPreview'), imgLatin = $('imgLatin');
+const imgDialog = $('imgDialog'), imgPreview = $('imgPreview'), imgLatin = $('imgLatin'), imgFlip = $('imgFlip');
 const imgShare = $('imgShare'), imgDownload = $('imgDownload');
 let imgBlob = null, imgUrl = null, imgJob = 0;
 const imgFile = () => new File([imgBlob], 'adlam.png', { type: 'image/png' });
 
 async function buildImage() {
   const job = ++imgJob;
-  const blob = await renderCard(adlamEl.value.trim(), latinEl.value.trim(), imgLatin.checked);
+  const blob = await renderCard(adlamEl.value.trim(), latinEl.value.trim(), imgLatin.checked, imgFlip.checked);
   if (job !== imgJob || !blob) return;   // une demande plus récente a pris le relais
   imgBlob = blob;
   if (imgUrl) URL.revokeObjectURL(imgUrl);
@@ -1217,6 +1224,7 @@ adlamImage.addEventListener('click', () => {
   buildImage();
 });
 imgLatin.addEventListener('change', buildImage);
+imgFlip.addEventListener('change', buildImage);
 
 imgDownload.addEventListener('click', () => {
   if (!imgUrl) return;
