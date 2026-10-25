@@ -19,6 +19,7 @@ NAME = cfg["name"].strip()
 SHORT_NAME = cfg["short_name"].strip()
 AUTHOR = cfg["author"].strip()
 YEAR = int(cfg["year"])
+SITE_URL = cfg.get("site_url", "").strip().rstrip("/") + "/" if cfg.get("site_url", "").strip() else ""
 
 out = root / "docs"
 out.mkdir(exist_ok=True)
@@ -68,7 +69,27 @@ for cp in [*range(0x1E900, 0x1E94C), *range(0x1E950, 0x1E95A), 0x1E95E, 0x1E95F]
 page = (root / "index.src.html").read_text(encoding="utf-8")
 copyright_line = f"© {YEAR} {html.escape(AUTHOR)}." if AUTHOR else ""
 
+DESCRIPTION = "Convertit le pular entre l'écriture Adlam et l'orthographe latine, lettre par lettre."
+og = [
+    ('property="og:type"', "website"),
+    ('property="og:title"', NAME + ": translittérateur Adlam et latin pour le pular/fulfulde"),
+    ('property="og:description"', DESCRIPTION),
+    ('property="og:locale"', "fr_FR"),
+    ('name="twitter:card"', "summary_large_image"),
+]
+if SITE_URL:   # Facebook et WhatsApp exigent une adresse complète pour l'image
+    og += [
+        ('property="og:url"', SITE_URL),
+        ('property="og:image"', SITE_URL + "og-image.png"),
+        ('property="og:image:width"', "1200"),
+        ('property="og:image:height"', "630"),
+        ('property="og:image:alt"', NAME + " : Adlam et latin"),
+        ('name="twitter:image"', SITE_URL + "og-image.png"),
+    ]
+og_tags = "\n".join(f'<meta {attr} content="{html.escape(value, quote=True)}">' for attr, value in og)
+
 replacements = [
+    ("__OG__", og_tags),
     ("/*__FONTS__*/", "\n".join(font_css)),
     ("/*__NAMES__*/{}", json.dumps(names)),
     ("__NAME_JS__", js_string(NAME)),
@@ -139,8 +160,10 @@ self.addEventListener('fetch', event => {{
 """
 (out / "sw.js").write_text(service_worker, encoding="utf-8")
 
-for icon in ("icon-192.png", "icon-512.png", "icon-maskable-512.png"):
+for icon in ("icon-192.png", "icon-512.png", "icon-maskable-512.png", "og-image.png"):
     shutil.copy(root / "icons" / icon, out / icon)
 
+if not SITE_URL:
+    print("ATTENTION : renseigne \"site_url\" dans config.json pour que l'image d'aperçu s'affiche sur Facebook/WhatsApp.")
 print(f"docs/ prêt : « {NAME} », signature « {AUTHOR or '(non définie)'} », "
       f"index.html {(out / 'index.html').stat().st_size / 1024:.0f} Ko, cache adlam-{version}")
