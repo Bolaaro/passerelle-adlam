@@ -96,7 +96,7 @@
   }
 
   .wrap {
-    max-width: 1080px;
+    max-width: min(1680px, 94vw);
     margin: 0 auto;
     padding: 0 clamp(1rem, 4vw, 2rem);
   }
@@ -149,7 +149,8 @@
   .stage[data-first="latin"] .panel--adlam { order: 3; }
 
   @media (min-width: 860px) {
-    .stage { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+    .field { min-height: clamp(10rem, 30vh, 18rem); }
+    .stage { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; }
   }
 
   .swap {
@@ -254,7 +255,7 @@
     flex: 1;
     width: 100%;
     min-height: clamp(7rem, 22vh, 10rem);
-    max-height: 32rem;
+    max-height: max(32rem, 62vh);
     padding: 0.5rem 0;
     margin: 0;
     resize: vertical;
@@ -552,10 +553,10 @@
 
     <section class="strip" aria-labelledby="stripTitle">
       <h2 id="stripTitle">Lettre par lettre</h2>
-      <p class="strip-lede">Chaque tuile relie une lettre Adlam à son équivalent latin. Le nom Unicode de la lettre s'affiche au survol.</p>
+      <p class="strip-lede">Le mot où se trouve ton curseur, lettre par lettre : chaque tuile relie une lettre Adlam à son équivalent latin. Le nom Unicode s'affiche au survol.</p>
       <div class="tiles" id="tiles" aria-hidden="true"></div>
       <p class="tiles-empty" id="tilesEmpty">Écris quelque chose pour voir les lettres se relier.</p>
-      <p class="tiles-note" id="tilesNote" hidden>Aperçu limité aux 400 premiers éléments.</p>
+      <p class="tiles-note" id="tilesNote" hidden>Mot très long : aperçu limité aux 60 premiers éléments.</p>
     </section>
 
     <p class="sr-only" id="live" role="status"></p>
@@ -788,7 +789,8 @@ const tiles = $('tiles'), tilesEmpty = $('tilesEmpty'), tilesNote = $('tilesNote
 const live = $('live');
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
-const MAX_TILES = 400;
+const MAX_TILES = 60;
+let currentSegs = [];   // segments du texte entier ; la bande n'en montre que le mot sous le curseur
 let source = 'latin';   // champ modifié en dernier : il décide du sens de lecture de la bande
 
 function countLabel(text) {
@@ -813,11 +815,40 @@ function unicodeName(text) {
   return name ? `${name} (U+${cp.toString(16).toUpperCase()})` : '';
 }
 
+// Mot sous le curseur du champ qui fait foi (le dernier modifié) : suite de segments sans espace ni retour à la ligne
+function wordAtCaret(segs) {
+  if (!segs.length) return [];
+  const field = source === 'adlam' ? adlamEl : latinEl;
+  const caret = field.selectionStart ?? field.value.length;
+  const text = s => source === 'adlam' ? s.adlam : s.latin;
+  const isGap = s => s.kind === 'space' || s.kind === 'break';
+  // segment juste avant le curseur (ou le premier si le curseur est au début)
+  let idx = 0, pos = 0;
+  for (let i = 0; i < segs.length; i++) {
+    pos += text(segs[i]).length;
+    idx = i;
+    if (pos >= caret) break;
+  }
+  if (isGap(segs[idx])) {       // curseur après un espace : on prend le mot d'avant, sinon celui d'après
+    let j = idx;
+    while (j >= 0 && isGap(segs[j])) j--;
+    if (j < 0) { j = idx; while (j < segs.length && isGap(segs[j])) j++; }
+    if (j < 0 || j >= segs.length) return [];
+    idx = j;
+  }
+  let a = idx, b = idx;
+  while (a > 0 && !isGap(segs[a - 1])) a--;
+  while (b < segs.length - 1 && !isGap(segs[b + 1])) b++;
+  return segs.slice(a, b + 1);
+}
+
 function renderTiles(segs) {
+  currentSegs = segs;
+  const word = wordAtCaret(segs);
   tiles.dir = source === 'adlam' ? 'rtl' : 'ltr';
-  tilesEmpty.hidden = segs.length > 0;
-  tilesNote.hidden = segs.length <= MAX_TILES;
-  const shown = segs.slice(0, MAX_TILES);
+  tilesEmpty.hidden = word.length > 0;
+  tilesNote.hidden = word.length <= MAX_TILES;
+  const shown = word.slice(0, MAX_TILES);
 
   while (tiles.children.length > shown.length) tiles.lastElementChild.remove();
 
@@ -866,6 +897,14 @@ function update(from) {
   }
   renderTiles(segs);
   refresh();
+}
+
+// Le curseur bouge sans que le texte change : la bande suit le mot sous le curseur
+for (const [field, name] of [[adlamEl, 'adlam'], [latinEl, 'latin']]) {
+  const follow = () => { if (source === name && field === document.activeElement) renderTiles(currentSegs); };
+  field.addEventListener('keyup', follow);
+  field.addEventListener('click', follow);
+  field.addEventListener('focus', () => { if (source !== name) { source = name; renderTiles(currentSegs); } });
 }
 
 adlamEl.addEventListener('input', () => update('adlam'));
@@ -1083,7 +1122,7 @@ async function renderCard(adlam, latin, withLatin) {
   const probe = document.createElement('canvas').getContext('2d');
 
   // Plus le texte est long, plus la lettre rétrécit (jusqu'à 6 lignes), puis la carte s'allonge.
-  probe.direction = 'rtl';
+  probe.direction = 'ltr';
   let size = 40, lines = [];
   for (const candidate of [128, 108, 92, 78, 66, 56, 48, 40]) {
     probe.font = `400 ${candidate}px "Noto Sans Adlam"`;
@@ -1110,13 +1149,26 @@ async function renderCard(adlam, latin, withLatin) {
   g.fillRect(0, 0, CARD.width, height);
   g.textBaseline = 'alphabetic';
 
-  // Adlam : aligné à droite, comme son sens de lecture
-  g.direction = 'rtl';
-  g.textAlign = 'right';
+  // Adlam : aligné à droite, comme son sens de lecture. Les mots sont placés un à un de droite
+  // à gauche : on ne dépend pas de la gestion du sens de lecture du canvas (qui diffère selon
+  // les navigateurs, par exemple Safari sur iPhone). Chaque mot reste dessiné d'un seul bloc
+  // pour garder les lettres liées.
+  g.direction = 'ltr';
+  g.textAlign = 'left';
   g.font = `400 ${size}px "Noto Sans Adlam"`;
   g.fillStyle = CARD.ink;
+  const spaceWidth = g.measureText(' ').width;
   let y = CARD.pad + Math.round(size * 1.15);
-  for (const line of lines) { g.fillText(line, CARD.width - CARD.pad, y); y += lineHeight; }
+  for (const line of lines) {
+    let x = CARD.width - CARD.pad;
+    for (const word of line.split(' ')) {
+      if (!word) { x -= spaceWidth; continue; }
+      x -= g.measureText(word).width;
+      g.fillText(word, x, y);
+      x -= spaceWidth;
+    }
+    y += lineHeight;
+  }
 
   // Latin : aligné à gauche, comme le sien
   g.direction = 'ltr';
