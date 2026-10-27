@@ -161,7 +161,11 @@ self.addEventListener('fetch', event => {{
 (out / "sw.js").write_text(service_worker, encoding="utf-8")
 
 for icon in ("icon-192.png", "icon-512.png", "icon-maskable-512.png", "og-image.png"):
-    shutil.copy(root / "icons" / icon, out / icon)
+    source = root / "icons" / icon
+    if source.exists():
+        shutil.copy(source, out / icon)
+    else:
+        print(f"ATTENTION : icons/{icon} est introuvable, il n'est pas copié dans docs/.")
 
 if not SITE_URL:
     print("ATTENTION : renseigne \"site_url\" dans config.json pour que l'image d'aperçu s'affiche sur Facebook/WhatsApp.")

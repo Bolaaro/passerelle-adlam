@@ -1,5 +1,5 @@
 // Généré par build.py : le nom du cache change à chaque nouvelle version de la page.
-const CACHE = 'adlam-5ebfd31d';
+const CACHE = 'adlam-5605166f';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', event => {
