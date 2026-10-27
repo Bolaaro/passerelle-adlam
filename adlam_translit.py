@@ -199,6 +199,22 @@ def _match_longest(text: str, i: int):
     return None, 0
 
 
+# Mots où une consonne doublée devant une voyelle garde ses deux lettres
+# (pas de marque de gémination). Écrits en minuscules ; ajouter ici d'autres cas.
+GEMINATION_EXCEPTIONS = {"allah", "allahou"}
+
+
+def _word_at(text: str, i: int) -> str:
+    """Le mot (suite de lettres) qui contient la position i, en minuscules."""
+    start = i
+    while start > 0 and text[start - 1].isalpha():
+        start -= 1
+    end = i
+    while end < len(text) and text[end].isalpha():
+        end += 1
+    return text[start:end].lower()
+
+
 def latin_to_adlam(text: str) -> str:
     """Convertit un texte en orthographe latine Bamako/UNESCO du Pular
     vers l'écriture Adlam. Les lettres simples doublées (voyelle ou
@@ -246,7 +262,7 @@ def latin_to_adlam(text: str) -> str:
             # si une voyelle suit (« ullu »). Devant une consonne ou en fin
             # de mot (« winnden »), on garde les deux lettres.
             after, _ = _match_longest(text, i + length + next_len)
-            if after in VOWELS_LATIN:
+            if after in VOWELS_LATIN and _word_at(text, i) not in GEMINATION_EXCEPTIONS:
                 out.append(base)
                 out.append(chr(GEMINATION_MARK))
             else:

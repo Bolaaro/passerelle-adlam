@@ -718,6 +718,16 @@ function matchLongest(text, i) {
   return [null, 0];
 }
 
+// Mots où une consonne doublée devant une voyelle garde ses deux lettres (pas de marque de gémination)
+const GEMINATION_EXCEPTIONS = new Set(["allah","allahou"]);
+
+function wordAt(text, i) {
+  let start = i, end = i;
+  while (start > 0 && /\p{L}/u.test(text[start - 1])) start--;
+  while (end < text.length && /\p{L}/u.test(text[end])) end++;
+  return text.slice(start, end).toLowerCase();
+}
+
 function latinSegments(text) {
   const segs = [];
   let i = 0;
@@ -751,7 +761,7 @@ function latinSegments(text) {
         // Consonne doublée : gémination seulement devant une voyelle (« ullu »);
         // devant une consonne ou en fin de mot (« winnden »), les deux lettres restent.
         const [after] = matchLongest(text, i + length + nextLen);
-        if (after !== null && VOWELS.has(after)) {
+        if (after !== null && VOWELS.has(after) && !GEMINATION_EXCEPTIONS.has(wordAt(text, i))) {
           segs.push({ latin: pairLatin, adlam: base + String.fromCodePoint(GEMINATION_MARK), kind: "letter" });
         } else {
           const second = text[i + length];

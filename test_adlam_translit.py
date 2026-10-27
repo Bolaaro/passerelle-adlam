@@ -187,5 +187,45 @@ class ConsonneDoubleSelonLeContexte(unittest.TestCase):
         self.assertIn(chr(0x1E945), latin_to_adlam("uu"))
 
 
+class ExceptionAllah(unittest.TestCase):
+    """Dans « Allah », les deux « l » restent : pas de marque de gémination."""
+
+    def test_allah_garde_deux_lettres(self):
+        for mot in ("Allah", "allah", "ALLAH"):
+            self.assertNotIn(chr(0x1E946), latin_to_adlam(mot), mot)
+
+    def test_allah_en_phrase(self):
+        self.assertNotIn(chr(0x1E946), latin_to_adlam("Ko Allah, jam."))
+
+    def test_retour_en_latin(self):
+        self.assertEqual(adlam_to_latin(latin_to_adlam("Allah")), "Allah")
+
+    def test_autres_mots_inchanges(self):
+        self.assertIn(chr(0x1E946), latin_to_adlam("addu"))
+        self.assertIn(chr(0x1E946), latin_to_adlam("ullu"))
+        self.assertIn(chr(0x1E946), latin_to_adlam("Allaaji"))  # autre mot : la règle normale s'applique
+
+
+class ExceptionAllahExemples(unittest.TestCase):
+    def test_allah_garde_les_deux_l(self):
+        self.assertEqual(latin_to_adlam("allah"), "\U0001E922\U0001E924\U0001E924\U0001E922\U0001E938")
+        self.assertNotIn(chr(0x1E946), latin_to_adlam("Allah"))
+
+    def test_exemples_de_la_regle(self):
+        self.assertEqual(latin_to_adlam("addu"), "\U0001E922\U0001E923\U0001E946\U0001E935")
+        self.assertEqual(latin_to_adlam("jannde"),
+                         "𞤶𞤢𞤲𞤲𞤣𞤫")
+
+    def test_l_exception_ne_touche_pas_les_autres_mots(self):
+        self.assertIn(chr(0x1E946), latin_to_adlam("ullu"))
+        self.assertIn(chr(0x1E946), latin_to_adlam("allaa"))   # autre mot : règle normale
+
+
+class ExceptionAllahou(unittest.TestCase):
+    def test_allahou_garde_deux_lettres(self):
+        for mot in ("allahou", "Allahou"):
+            self.assertNotIn(chr(0x1E946), latin_to_adlam(mot), mot)
+
+
 if __name__ == "__main__":
     unittest.main()
