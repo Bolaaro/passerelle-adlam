@@ -3,5 +3,6 @@
   "short_name": "Passerelle",
   "author": "Ismaila H. Barry",
   "year": 2026,
-  "site_url": "https://bolaaro.github.io/passerelle-adlam/"
+  "site_url": "https://bolaaro.github.io/passerelle-adlam/",
+  "stats_script": "<script data-goatcounter=\"https://bolaaro.goatcounter.com/count\"async src=\"//gc.zgo.at/count.js\"></script>"
 }

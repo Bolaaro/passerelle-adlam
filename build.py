@@ -19,6 +19,7 @@ NAME = cfg["name"].strip()
 SHORT_NAME = cfg["short_name"].strip()
 AUTHOR = cfg["author"].strip()
 YEAR = int(cfg["year"])
+STATS_SCRIPT = cfg.get("stats_script", "").strip()
 SITE_URL = cfg.get("site_url", "").strip().rstrip("/") + "/" if cfg.get("site_url", "").strip() else ""
 
 out = root / "docs"
@@ -88,7 +89,15 @@ if SITE_URL:   # Facebook et WhatsApp exigent une adresse complète pour l'image
     ]
 og_tags = "\n".join(f'<meta {attr} content="{html.escape(value, quote=True)}">' for attr, value in og)
 
+# Statistiques de visites (facultatif) : la ligne <script> fournie par le service choisi (ex. GoatCounter)
+stats_note = (
+    "<p>Statistiques de visites anonymes, sans cookies. "
+    "Les textes que tu écris ne sont jamais envoyés.</p>"
+) if STATS_SCRIPT else ""
+
 replacements = [
+    ("__STATS_NOTE__", stats_note),
+    ("__STATS__", STATS_SCRIPT),
     ("__OG__", og_tags),
     ("/*__FONTS__*/", "\n".join(font_css)),
     ("/*__NAMES__*/{}", json.dumps(names)),

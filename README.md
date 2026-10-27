@@ -33,3 +33,5 @@ Une erreur dans les correspondances ? Ouvre une *issue* avec le mot, ce que l'ou
 © 2026 Ismaila H. Barry. Tous droits réservés. Pour toute utilisation ou réutilisation du code, contacte l'auteur.
 
 Polices : Noto Sans Adlam (© The Noto Project Authors) et Andika (© SIL International), sous [SIL Open Font License 1.1](https://openfontlicense.org). Les fichiers de licence sont dans `fonts/`.
+
+Statistiques de visites anonymes, sans cookies. Les textes que tu écris ne sont jamais envoyés.
